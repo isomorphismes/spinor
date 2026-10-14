@@ -1,5 +1,13 @@
 # spinor
 
+**Primary visual credit: Jason Hise.** The central spinning body tethered by
+**six anchored belts/ribbons** and the continuous untwisting over a 720° turn
+follow his original 2016 [*Belt Trick*](https://commons.wikimedia.org/wiki/File:Belt_Trick.ogv)
+and [96-strand *Antitwister*](https://commons.wikimedia.org/wiki/File:Antitwister.ogv)
+animations. The present phone app and movie are **independently written
+interpretations of Hise's visual construction**. We do not claim to have
+invented his visualization or the much older mathematical belt trick.
+
 Interactive spinor and belt-trick playground.
 
 ## Credit and visual lineage
@@ -10,6 +18,8 @@ Hise's work is more than a generic reference to the Dirac belt trick. His animat
 
 Primary Hise references:
 
+- [Jason Hise's original six-belt *Belt Trick* film (2016)](https://commons.wikimedia.org/wiki/File:Belt_Trick.ogv) — spinning cube, six anchored belts, untangled return after 720°
+- [Jason Hise's original *Antitwister* film (2016)](https://commons.wikimedia.org/wiki/File:Antitwister.ogv) — 96 strands around a rotating ball, a larger version of the same visual idea
 - [Jason Hise, “Why I create beautiful math GIFs” — Wikimedia Diff](https://diff.wikimedia.org/2016/09/22/math-gifs/)
 - [JasonHise on Wikimedia Commons](https://commons.wikimedia.org/wiki/User:JasonHise)
 - [Jason Hise on YouTube](https://www.youtube.com/channel/UCw5aOpkU7_uuL73-kVxdJIA)

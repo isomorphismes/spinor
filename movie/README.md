@@ -1,5 +1,7 @@
 # Repeatable 0 → 2π → 4π movie
 
+**Visual lineage: Jason Hise's [six-belt *Belt Trick*](https://commons.wikimedia.org/wiki/File:Belt_Trick.ogv) and [*Antitwister*](https://commons.wikimedia.org/wiki/File:Antitwister.ogv).** This is an independently produced recording of the same visual idea; neither the ribbon presentation nor Hise's original animation is claimed as our invention. The belt trick itself predates these animations. [Details](../notes/jason-hise.md).
+
 This directory owns the Spinor-specific state trajectory and host frame
 rendering. It deliberately stops at numbered stills.
 
