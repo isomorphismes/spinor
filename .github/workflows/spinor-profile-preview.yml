@@ -1,0 +1,92 @@
+name: Build Spinor profile preview from release movie
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Render Spinor movie
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  preview:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install FFmpeg if missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+      - name: Download and verify the published movie
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/profile
+          gh release download v0.0.1-pre.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern spinor-4pi-demo.mp4 \
+            --pattern spinor-4pi-demo.receipt.tsv \
+            --dir build/profile
+          movie=build/profile/spinor-4pi-demo.mp4
+          receipt=build/profile/spinor-4pi-demo.receipt.tsv
+          test -s "$movie"
+          test -s "$receipt"
+          expected="$(awk -F '\t' '$1 == "movie_sha256" {print $2}' "$receipt")"
+          test "${#expected}" -eq 64
+          actual="$(sha256sum "$movie" | cut -d ' ' -f 1)"
+          test "$actual" = "$expected"
+
+      - name: Produce a readable animated GIF of the exact movie
+        shell: bash
+        run: |
+          set -euo pipefail
+          ffmpeg -nostdin -hide_banner -loglevel error -y \
+            -i build/profile/spinor-4pi-demo.mp4 \
+            -filter_complex '[0:v]fps=10,scale=240:240:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3' \
+            -loop 0 build/profile/spinor-4pi-demo-preview.gif
+          preview=build/profile/spinor-4pi-demo-preview.gif
+          test -s "$preview"
+          frames="$(ffprobe -v error -count_frames -select_streams v:0 \
+            -show_entries stream=nb_read_frames -of default=noprint_wrappers=1:nokey=1 \
+            "$preview")"
+          test "$frames" -ge 70
+          sha256sum build/profile/spinor-4pi-demo.mp4 "$preview" \
+            > build/profile/spinor-preview.sha256
+
+      - name: Retain MP4 provenance and GIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: spinor-profile-preview
+          path: |
+            build/profile/spinor-4pi-demo-preview.gif
+            build/profile/spinor-4pi-demo.receipt.tsv
+            build/profile/spinor-preview.sha256
+          if-no-files-found: error
+
+      - name: Publish GIF beside the actual prerelease movie
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload v0.0.1-pre.1 \
+            build/profile/spinor-4pi-demo-preview.gif \
+            --repo "$GITHUB_REPOSITORY" --clobber
