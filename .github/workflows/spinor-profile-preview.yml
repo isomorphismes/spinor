@@ -1,18 +1,24 @@
 name: Build Spinor profile preview from release movie
 
 on:
-  push:
-    branches:
-      - profile/spinor-animated-preview-2026-10-13
-    paths:
-      - .github/workflows/spinor-profile-preview.yml
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Render Spinor movie
+    types:
+      - completed
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   preview:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
@@ -76,7 +82,6 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GIF beside the actual prerelease movie
-        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
