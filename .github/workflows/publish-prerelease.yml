@@ -10,36 +10,104 @@ permissions:
   actions: read
   contents: write
 
+concurrency:
+  group: spinor-public-prerelease
+  cancel-in-progress: false
+
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_RUN_ID: "38498203548"
+      SOURCE_SHA: "8052dbb49792603d5eb33d4b3f762d6d0ecc70ee"
+      RELEASE_TAG: "v0.0.2-pre.1"
     steps:
-      - name: Download tested APK artifacts
+      - name: Reject unverified source, stale CI, and pre-existing tag
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          set -eux
-          mkdir -p dist/a1 dist/c67
-          gh run download 37534213403 \
-            --repo "$GITHUB_REPOSITORY" \
-            --name spinor-miro-a1-armeabi-v7a \
-            --dir dist/a1
-          gh run download 37534213403 \
-            --repo "$GITHUB_REPOSITORY" \
-            --name spinor-miro-c67-arm64-v8a \
-            --dir dist/c67
-          find dist -type f -maxdepth 3 -print
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" \
+            | jq -e --arg sha "$SOURCE_SHA" --arg repo "$GITHUB_REPOSITORY" \
+              '.head_sha == $sha and .head_branch == "main" and .event == "push" and .conclusion == "success" and .repository.full_name == $repo'
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing release $RELEASE_TAG" >&2
+            exit 1
+          fi
 
-      - name: Create public prerelease
+      - name: Fetch both APKs from the exact successful main build
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          set -eux
-          gh release create v0.0.1-pre.1 \
-            dist/a1/*.apk \
-            dist/c67/*.apk \
+          set -euo pipefail
+          mkdir -p dist/a1 dist/c67
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name spinor-miro-a1-armeabi-v7a --dir dist/a1
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name spinor-miro-c67-arm64-v8a --dir dist/c67
+          for apk in dist/a1/*.apk dist/c67/*.apk; do
+            test -s "$apk"
+            test -s "$apk.sha256"
+            expected=$(awk 'NF >= 2 {print $1; exit}' "$apk.sha256")
+            [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+            test "$(sha256sum "$apk" | awk '{print $1}')" = "$expected"
+            unzip -t "$apk" >/dev/null
+          done
+
+      - name: Install the APK inspection tools
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699
+        with:
+          packages: "build-tools;35.0.0"
+
+      - name: Check package, target ABI, and stable public test signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          aapt="$sdk_root/build-tools/35.0.0/aapt"
+          signer="$sdk_root/build-tools/35.0.0/apksigner"
+          expected_signer=de9b1d47c5a65e6d46a204b79dd9ee566b9d3c9832ba81ebc4213d3392e92ff9
+          for abi in armeabi-v7a arm64-v8a; do
+            case "$abi" in
+              armeabi-v7a) apk=dist/a1/spinor-miro-a1-armeabi-v7a.apk ;;
+              arm64-v8a) apk=dist/c67/spinor-miro-c67-arm64-v8a.apk ;;
+            esac
+            "$aapt" dump badging "$apk" | grep -Fq "package: name='org.functorialgames.spinor'"
+            unzip -Z1 "$apk" | grep -Fxq "lib/$abi/libspinor.so"
+            if unzip -Z1 "$apk" | grep -Eq '(^|/)classes[0-9]*[.]dex$'; then
+              echo "Unexpected DEX in $apk" >&2
+              exit 1
+            fi
+            "$signer" verify --print-certs "$apk" \
+              | grep -Fq "Signer #1 certificate SHA-256 digest: $expected_signer"
+          done
+
+      - name: Bring forward the movie demonstration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release download v0.0.1-pre.1 --repo "$GITHUB_REPOSITORY" \
+            --pattern spinor-4pi-demo.mp4 \
+            --pattern spinor-4pi-demo-preview.gif \
+            --dir dist/
+
+      - name: Publish a permanent source-bound Android prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            dist/a1/*.apk dist/a1/*.sha256 \
+            dist/c67/*.apk dist/c67/*.sha256 \
+            dist/spinor-4pi-demo.mp4 dist/spinor-4pi-demo-preview.gif \
             --repo "$GITHUB_REPOSITORY" \
-            --target 4aff4167643c09a39f754fedc1d56cb3b0317afa \
-            --title "Spinor v0.0.1-pre.1" \
+            --target "$SOURCE_SHA" \
+            --title "Spinor test APKs (October 14 source)" \
             --prerelease \
-            --notes "Very early Spinor prerelease. Tested on MIRO A1 and MIRO C67. Current interaction: one-direction spin; pinch zoom is not implemented yet. Includes signed MIRO A1 (armeabi-v7a) and MIRO C67 (arm64-v8a) APKs."
+            --notes "Signed test APKs from exact successful October 14 main-branch build $SOURCE_SHA (run $SOURCE_RUN_ID). MIRO A1: armeabi-v7a; MIRO C67: arm64-v8a. Same public development signing identity as the earlier test release. Package versionCode remains 1 and versionName remains 0.1; this is a source-refresh test release, not an assertion of a feature-version upgrade or physical-phone retest. The original animated movie is retained."

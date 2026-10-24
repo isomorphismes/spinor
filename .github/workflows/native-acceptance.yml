@@ -40,12 +40,12 @@ jobs:
           sdkmanager=$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)
           test -x "$sdkmanager"
           yes | "$sdkmanager" --licenses >/dev/null || true
-          "$sdkmanager" "ndk;27.2.12479018"
-          echo "ndk=$sdk_root/ndk/27.2.12479018" >> "$GITHUB_OUTPUT"
+          "$sdkmanager" "ndk;29.0.14206865"
+          echo "ndk=$sdk_root/ndk/29.0.14206865" >> "$GITHUB_OUTPUT"
 
       - name: Build the selected ICK frontend
         id: ick
-        uses: isomorphisms/ai-ci/ick-android@903b2cb27ea572c9c6cb2ffa9f39e0fbf06ec9f8
+        uses: isomorphisms/ai-ci/ick-android@f6d825d15cd3c0c34ae1b43240a463ff5d343090
         with:
           abi: ${{ matrix.abi }}
           ndk: ${{ steps.android-inputs.outputs.ndk }}
@@ -57,7 +57,7 @@ jobs:
           ICK_CC: ${{ steps.ick.outputs.compiler }}
         run: |
           sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          export ANDROID_NDK_HOME="$sdk_root/ndk/27.2.12479018"
+          export ANDROID_NDK_HOME="$sdk_root/ndk/29.0.14206865"
           mkdir -p "build/ci/${ANDROID_ABI}"
           bash android/build-native.sh "build/ci/${ANDROID_ABI}/libspinor.so"
 
@@ -66,7 +66,7 @@ jobs:
           ANDROID_ABI: ${{ matrix.abi }}
         run: |
           sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          ANDROID_NDK_HOME="$sdk_root/ndk/27.2.12479018"
+          ANDROID_NDK_HOME="$sdk_root/ndk/29.0.14206865"
           toolchain=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -mindepth 1 -maxdepth 1 -type d | head -n 1)
           "$toolchain/bin/llvm-readelf" -h "build/ci/${ANDROID_ABI}/libspinor.so"
           "$toolchain/bin/llvm-readelf" -Ws "build/ci/${ANDROID_ABI}/libspinor.so" | grep -E 'ANativeActivity_onCreate|android_main'
