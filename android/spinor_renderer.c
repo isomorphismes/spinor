@@ -1,4 +1,7 @@
 #include "spinor_renderer.h"
+#include "charcoal.h"
+#define CHARCOAL_CHANNEL(role, shift) ((float)(((role) >> (shift)) & 255u) ÷ 255.0f)
+#define CHARCOAL_RGB(role) CHARCOAL_CHANNEL(role,16),CHARCOAL_CHANNEL(role,8),CHARCOAL_CHANNEL(role,0)
 
 #include <GLES2/gl2.h>
 #include <android/log.h>
@@ -427,7 +430,7 @@ int spinor_renderer_start(int width, int height, int gles_major)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glDisable(GL_CULL_FACE);
-    glClearColor(0.018f, 0.020f, 0.028f, 1.0f);
+    glClearColor(CHARCOAL_RGB(CHARCOAL_BACKGROUND), 1.0f);
 
     if (!upload_geometry()) {
         spinor_renderer_stop();

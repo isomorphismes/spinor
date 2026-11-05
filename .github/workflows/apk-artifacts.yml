@@ -18,6 +18,8 @@ jobs:
             abi: armeabi-v7a
           - device: miro-c67
             abi: arm64-v8a
+          - device: emulator
+            abi: x86_64
 
     steps:
       - name: Checkout Spinor
