@@ -1,0 +1,8 @@
+observation	lift	orientation
+start	+1	identity
+z_half_turn	+k	half_turn_z
+z_full_turn	-1	identity
+z_three_half_turns	-k	half_turn_z
+z_two_full_turns	+1	identity
+i_times_j	+k	half_turn_z
+j_times_i	-k	half_turn_z

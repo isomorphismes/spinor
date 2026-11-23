@@ -1,0 +1,83 @@
+module RotationFixtures
+
+import LiftedRotations
+import Data.Text
+
+identity_lift : QuaternionLift
+identity_lift = Lift plus_sign scalar_basis
+
+x_half_lift : QuaternionLift
+x_half_lift = Lift plus_sign first_axis
+
+y_half_lift : QuaternionLift
+y_half_lift = Lift plus_sign second_axis
+
+z_half_lift : QuaternionLift
+z_half_lift = Lift plus_sign third_axis
+
+z_full_lift : QuaternionLift
+z_full_lift = multiply z_half_lift z_half_lift
+
+z_three_halves_lift : QuaternionLift
+z_three_halves_lift = multiply z_half_lift z_full_lift
+
+z_two_full_lift : QuaternionLift
+z_two_full_lift = multiply z_half_lift z_three_halves_lift
+
+full_turn_keeps_orientation : project RotationFixtures.z_full_lift = project RotationFixtures.identity_lift
+full_turn_keeps_orientation = Refl
+
+full_turn_changes_lift : RotationFixtures.z_full_lift = RotationFixtures.identity_lift → Void
+full_turn_changes_lift = antipodes_differ identity_lift
+
+two_full_turns_restore_lift : RotationFixtures.z_two_full_lift = RotationFixtures.identity_lift
+two_full_turns_restore_lift = Refl
+
+ordered_half_turns_differ : multiply RotationFixtures.x_half_lift RotationFixtures.y_half_lift =
+  multiply RotationFixtures.y_half_lift RotationFixtures.x_half_lift → Void
+ordered_half_turns_differ equality = antipodes_differ z_half_lift (sym equality)
+
+ordered_half_turns_project_equally :
+  project (multiply RotationFixtures.x_half_lift RotationFixtures.y_half_lift) =
+  project (multiply RotationFixtures.y_half_lift RotationFixtures.x_half_lift)
+ordered_half_turns_project_equally = Refl
+
+orientation_cannot_select_every_lift :
+  (choose : orientation → QuaternionLift) →
+  ((lift : QuaternionLift) → choose (project lift) = lift) → Void
+orientation_cannot_select_every_lift choose round_trip =
+  full_turn_changes_lift (trans (sym (round_trip z_full_lift)) (round_trip identity_lift))
+
+sign_name : sign → Text
+sign_name plus_sign = "+"
+sign_name minus_sign = "-"
+
+basis_name : quaternion_basis → Text
+basis_name scalar_basis = "1"
+basis_name first_axis = "i"
+basis_name second_axis = "j"
+basis_name third_axis = "k"
+
+lift_name : QuaternionLift → Text
+lift_name (Lift coefficient basis) = sign_name coefficient ++ basis_name basis
+
+orientation_name : orientation → Text
+orientation_name unchanged = "identity"
+orientation_name half_turn_x = "half_turn_x"
+orientation_name half_turn_y = "half_turn_y"
+orientation_name half_turn_z = "half_turn_z"
+
+readout : Text → QuaternionLift → IO ()
+readout label lift =
+  putStrLn (label ++ "\t" ++ lift_name lift ++ "\t" ++ orientation_name (project lift))
+
+main : IO ()
+main = do
+  putStrLn "observation\tlift\torientation"
+  readout "start" identity_lift
+  readout "z_half_turn" z_half_lift
+  readout "z_full_turn" z_full_lift
+  readout "z_three_half_turns" z_three_halves_lift
+  readout "z_two_full_turns" z_two_full_lift
+  readout "i_times_j" (multiply x_half_lift y_half_lift)
+  readout "j_times_i" (multiply y_half_lift x_half_lift)

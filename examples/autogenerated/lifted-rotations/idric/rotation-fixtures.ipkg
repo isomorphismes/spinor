@@ -1,0 +1,5 @@
+package rotation-fixtures
+
+modules = LiftedRotations, RotationFixtures
+main = RotationFixtures
+executable = rotation-fixtures

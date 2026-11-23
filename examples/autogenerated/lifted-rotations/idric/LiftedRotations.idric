@@ -1,0 +1,227 @@
+module LiftedRotations
+
+public export
+choice sign one_of
+  plus_sign
+  minus_sign
+
+public export
+choice quaternion_basis one_of
+  scalar_basis
+  first_axis
+  second_axis
+  third_axis
+
+public export
+record QuaternionLift where
+  constructor Lift
+  lift_sign : sign
+  lift_basis : quaternion_basis
+
+public export
+choice orientation one_of
+  unchanged
+  half_turn_x
+  half_turn_y
+  half_turn_z
+
+public export
+record DiagonalAction where
+  constructor Diagonal
+  x_sign : sign
+  y_sign : sign
+  z_sign : sign
+
+public export
+negate_sign : sign → sign
+negate_sign plus_sign = minus_sign
+negate_sign minus_sign = plus_sign
+
+public export
+multiply_sign : sign → sign → sign
+multiply_sign plus_sign right = right
+multiply_sign minus_sign right = negate_sign right
+
+public export
+antipode : QuaternionLift → QuaternionLift
+antipode (Lift coefficient basis) = Lift (negate_sign coefficient) basis
+
+-- The sign of the signed Hamilton basis product is recorded separately
+-- from the unsigned basis. The reversed ordered products carry a minus sign.
+public export
+product_basis : quaternion_basis → quaternion_basis → quaternion_basis
+product_basis scalar_basis right = right
+product_basis first_axis scalar_basis = first_axis
+product_basis first_axis first_axis = scalar_basis
+product_basis first_axis second_axis = third_axis
+product_basis first_axis third_axis = second_axis
+product_basis second_axis scalar_basis = second_axis
+product_basis second_axis first_axis = third_axis
+product_basis second_axis second_axis = scalar_basis
+product_basis second_axis third_axis = first_axis
+product_basis third_axis scalar_basis = third_axis
+product_basis third_axis first_axis = second_axis
+product_basis third_axis second_axis = first_axis
+product_basis third_axis third_axis = scalar_basis
+
+public export
+product_sign : quaternion_basis → quaternion_basis → sign
+product_sign scalar_basis right = plus_sign
+product_sign first_axis scalar_basis = plus_sign
+product_sign first_axis first_axis = minus_sign
+product_sign first_axis second_axis = plus_sign
+product_sign first_axis third_axis = minus_sign
+product_sign second_axis scalar_basis = plus_sign
+product_sign second_axis first_axis = minus_sign
+product_sign second_axis second_axis = minus_sign
+product_sign second_axis third_axis = plus_sign
+product_sign third_axis scalar_basis = plus_sign
+product_sign third_axis first_axis = plus_sign
+product_sign third_axis second_axis = minus_sign
+product_sign third_axis third_axis = minus_sign
+
+public export
+multiply : QuaternionLift → QuaternionLift → QuaternionLift
+multiply (Lift left_sign left_basis) (Lift right_sign right_basis) =
+  Lift (multiply_sign (product_sign left_basis right_basis)
+                      (multiply_sign left_sign right_sign))
+       (product_basis left_basis right_basis)
+
+public export
+orientation_for : quaternion_basis → orientation
+orientation_for scalar_basis = unchanged
+orientation_for first_axis = half_turn_x
+orientation_for second_axis = half_turn_y
+orientation_for third_axis = half_turn_z
+
+public export
+basis_for : orientation → quaternion_basis
+basis_for unchanged = scalar_basis
+basis_for half_turn_x = first_axis
+basis_for half_turn_y = second_axis
+basis_for half_turn_z = third_axis
+
+public export
+project : QuaternionLift → orientation
+project (Lift coefficient basis) = orientation_for basis
+
+public export
+diagonal_action : orientation → DiagonalAction
+diagonal_action unchanged = Diagonal plus_sign plus_sign plus_sign
+diagonal_action half_turn_x = Diagonal plus_sign minus_sign minus_sign
+diagonal_action half_turn_y = Diagonal minus_sign plus_sign minus_sign
+diagonal_action half_turn_z = Diagonal minus_sign minus_sign plus_sign
+
+public export
+diagonal_determinant : DiagonalAction → sign
+diagonal_determinant (Diagonal first second third) =
+  multiply_sign first (multiply_sign second third)
+
+public export
+positive_determinant : (viewed : orientation) →
+  diagonal_determinant (diagonal_action viewed) = plus_sign
+positive_determinant unchanged = Refl
+positive_determinant half_turn_x = Refl
+positive_determinant half_turn_y = Refl
+positive_determinant half_turn_z = Refl
+
+public export
+compose_diagonals : DiagonalAction → DiagonalAction → DiagonalAction
+compose_diagonals (Diagonal left_x left_y left_z) (Diagonal right_x right_y right_z) =
+  Diagonal (multiply_sign left_x right_x)
+           (multiply_sign left_y right_y)
+           (multiply_sign left_z right_z)
+
+public export
+basis_action : quaternion_basis → DiagonalAction
+basis_action basis = diagonal_action (orientation_for basis)
+
+public export
+basis_product_projects : (left, right : quaternion_basis) →
+  basis_action (product_basis left right) =
+  compose_diagonals (basis_action left) (basis_action right)
+basis_product_projects scalar_basis scalar_basis = Refl
+basis_product_projects scalar_basis first_axis = Refl
+basis_product_projects scalar_basis second_axis = Refl
+basis_product_projects scalar_basis third_axis = Refl
+basis_product_projects first_axis scalar_basis = Refl
+basis_product_projects first_axis first_axis = Refl
+basis_product_projects first_axis second_axis = Refl
+basis_product_projects first_axis third_axis = Refl
+basis_product_projects second_axis scalar_basis = Refl
+basis_product_projects second_axis first_axis = Refl
+basis_product_projects second_axis second_axis = Refl
+basis_product_projects second_axis third_axis = Refl
+basis_product_projects third_axis scalar_basis = Refl
+basis_product_projects third_axis first_axis = Refl
+basis_product_projects third_axis second_axis = Refl
+basis_product_projects third_axis third_axis = Refl
+
+public export
+projection_preserves_product : (left, right : QuaternionLift) →
+  diagonal_action (project (multiply left right)) =
+  compose_diagonals (diagonal_action (project left)) (diagonal_action (project right))
+projection_preserves_product (Lift left_sign left_basis) (Lift right_sign right_basis) =
+  basis_product_projects left_basis right_basis
+
+public export
+antipodes_project_equally : (original : QuaternionLift) →
+  project (antipode original) = project original
+antipodes_project_equally (Lift coefficient basis) = Refl
+
+public export
+opposite_signs_differ : (coefficient : sign) → negate_sign coefficient = coefficient → Void
+opposite_signs_differ plus_sign Refl impossible
+opposite_signs_differ minus_sign Refl impossible
+
+public export
+antipodes_differ : (original : QuaternionLift) → antipode original = original → Void
+antipodes_differ (Lift coefficient basis) equality =
+  opposite_signs_differ coefficient (cong lift_sign equality)
+
+public export
+data SameFiber : QuaternionLift → QuaternionLift → Type where
+  SameLift : (original : QuaternionLift) → SameFiber original original
+  OppositeLift : (original : QuaternionLift) → SameFiber original (antipode original)
+
+public export
+compare_signs : (left_sign, right_sign : sign) → (basis : quaternion_basis) →
+  SameFiber (Lift left_sign basis) (Lift right_sign basis)
+compare_signs plus_sign plus_sign basis = SameLift (Lift plus_sign basis)
+compare_signs plus_sign minus_sign basis = OppositeLift (Lift plus_sign basis)
+compare_signs minus_sign plus_sign basis = OppositeLift (Lift minus_sign basis)
+compare_signs minus_sign minus_sign basis = SameLift (Lift minus_sign basis)
+
+public export
+basis_recovered : (basis : quaternion_basis) → basis_for (orientation_for basis) = basis
+basis_recovered scalar_basis = Refl
+basis_recovered first_axis = Refl
+basis_recovered second_axis = Refl
+basis_recovered third_axis = Refl
+
+public export
+compare_lift_bases : (left_sign, right_sign : sign) →
+  (left_basis : quaternion_basis) → {right_basis : quaternion_basis} → left_basis = right_basis →
+  SameFiber (Lift left_sign left_basis) (Lift right_sign right_basis)
+compare_lift_bases left_sign right_sign basis Refl =
+  compare_signs left_sign right_sign basis
+
+public export
+projection_fiber : (left, right : QuaternionLift) → project left = project right →
+  SameFiber left right
+projection_fiber (Lift left_sign left_basis) (Lift right_sign right_basis) equality =
+  compare_lift_bases left_sign right_sign left_basis
+    (trans (sym (basis_recovered left_basis))
+           (trans (cong basis_for equality) (basis_recovered right_basis)))
+
+public export
+positive_representative : orientation → QuaternionLift
+positive_representative viewed = Lift plus_sign (basis_for viewed)
+
+public export
+representative_projects_back : (viewed : orientation) →
+  project (positive_representative viewed) = viewed
+representative_projects_back unchanged = Refl
+representative_projects_back half_turn_x = Refl
+representative_projects_back half_turn_y = Refl
+representative_projects_back half_turn_z = Refl
